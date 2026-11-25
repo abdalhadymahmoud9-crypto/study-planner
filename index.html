@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Focus Desk</title><link rel="stylesheet" href="style.css">
+<title>Focus Desk</title><meta name="theme-color" content="#0d1325"><link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header><h1>Focus Desk</h1><p>Tasks, focus timer, weekly plan and log</p></header>
 <main>
+<div class="tab" id="tab-tasks">
   <section class="card tasks">
     <h2>Tasks <span class="pill" id="open">0 open</span></h2>
     <form id="addtask">
@@ -19,6 +20,8 @@
     <p id="terr" class="err"></p>
     <ul id="tasklist" class="tasklist"></ul>
   </section>
+</div>
+<div class="tab on" id="tab-timer">
   <section class="card timer">
     <h2>Focus session <span class="pill" id="phase">Focus</span></h2>
     <div id="ring"><div id="clock">25:00</div></div>
@@ -29,9 +32,12 @@
     </div>
     <div class="row"><button id="start" class="primary">Start</button><button id="reset" class="ghost">Reset</button></div>
   </section>
+</div>
+<div class="tab" id="tab-report">
   <section class="card">
     <h2>This week <span class="pill" id="total">0m</span></h2>
     <div id="week"></div>
+    <div class="pie-wrap"><div id="pie" role="img" aria-label="Time by subject this week"></div><ul id="legend"></ul></div>
     <p class="meta">Current streak: <b id="streak">0 days</b></p>
   </section>
   <section class="card">
@@ -51,6 +57,8 @@
     <p id="err" class="err"></p>
     <ul id="recent" class="recent"></ul>
   </section>
+</div>
 </main>
+<nav class="tabs" aria-label="Sections"><button data-tab="tasks">Tasks</button><button data-tab="timer" class="on">Timer</button><button data-tab="report">Report</button></nav>
 <script type="module" src="app.js"></script>
 </body></html>
