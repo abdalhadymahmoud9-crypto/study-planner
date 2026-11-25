@@ -39,3 +39,18 @@ form select,form button{grid-column:span 2}
 .subs input{min-height:36px;padding:4px 8px;width:64px;font-size:.85rem;text-align:right}
 .subs li.met i::after{background:#2f9e5b}
 .subs li.met em{color:#2f9e5b}
+
+.tasks{grid-column:1/-1}
+#addtask{display:grid;grid-template-columns:2fr 1fr 90px 150px auto;gap:8px}
+.tasklist{list-style:none;margin:16px 0 0;padding:0}
+.tasklist li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.tasklist li div{flex:1;min-width:0}
+.tasklist b{font-weight:500;display:block;overflow-wrap:anywhere}
+.tasklist small{color:var(--mute)}
+.tasklist li.done b{text-decoration:line-through;color:var(--mute)}
+.chk{width:44px;height:44px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-size:1rem}
+li.done .chk{background:var(--ink);color:#fff}
+.sm{min-height:44px;min-width:44px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);padding:0 12px}
+.timer label{margin-bottom:8px}
+@media(max-width:640px){#addtask{grid-template-columns:1fr 1fr}#addtask input:first-child,#addtask button{grid-column:1/-1}}
+.addsub{display:flex;gap:8px;margin-top:16px}.addsub input{flex:1;min-width:0}
