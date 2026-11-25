@@ -28,10 +28,10 @@ const PHASE_LABEL = { focus: "Focus", short: "Short break", long: "Long break" }
 const subjectSel = $("#subject");
 function paintTimer() {
   $("#clock").textContent = formatClock(left);
-  $("#phase").textContent = PHASE_LABEL[phase];
+  $("#phase").textContent = PHASE_LABEL[phase]; $("#start").classList.toggle("running", !!tick);
   const done = 1 - left / lenOf();
   $("#ring").style.setProperty("--p", (done * 360).toFixed(1) + "deg");
-  $("#start").textContent = tick ? "Pause" : left === lenOf() ? "Start" : "Resume";
+  $("#start").textContent = tick ? "Pause" : left === lenOf() ? "Start to Focus" : "Resume";
   document.title = tick ? `${formatClock(left)} · Focus Desk` : "Focus Desk";
 }
 function finish() {
@@ -86,6 +86,11 @@ function render() {
   const prog = weekProgress(sessions, days, goals, subjects);
   $("#subjects").innerHTML = prog.map((p) =>
     `<li class="${p.met ? "met" : ""}"><span>${p.subject}</span><i style="--w:${p.pct * 100}%"></i><em>${formatHours(p.done)}</em><input type="number" min="0" max="3000" step="15" value="${p.goal || ""}" placeholder="goal" data-goal="${p.subject}" aria-label="${p.subject} weekly goal in minutes"></li>`).join("");
+  const wk = weekProgress(sessions, days, goals, subjects).filter((p) => p.done > 0), sum = wk.reduce((x, p) => x + p.done, 0);
+  const COL = ["#ff6b57", "#ffb26b", "#7bd3c1", "#7aa2ff", "#c792ea", "#f2e394", "#9aa5c4", "#e58fb0"];
+  let acc = 0;
+  $("#pie").style.background = sum ? `conic-gradient(${wk.map((p, i) => { const s = acc / sum * 360; acc += p.done; return `${COL[i % COL.length]} ${s}deg ${acc / sum * 360}deg`; }).join(",")})` : "rgba(255,255,255,.08)";
+  $("#legend").innerHTML = wk.map((p, i) => `<li><i style="background:${COL[i % COL.length]}"></i>${esc(p.subject)}<em>${formatHours(p.done)}</em></li>`).join("") || "<li class='none'>No time logged this week.</li>";
   $("#total").textContent = formatHours(per.reduce((a, b) => a + b, 0));
   $("#streak").textContent = streak(sessions, today()) + " day" + (streak(sessions, today()) === 1 ? "" : "s");
   $("#recent").innerHTML = [...sessions].reverse().slice(0, 6).map((s) =>
@@ -125,3 +130,14 @@ $("#subjects").onchange = (e) => {
   goals[s] = Math.max(0, Math.round(Number(e.target.value) || 0));
   localStorage.setItem(GKEY, JSON.stringify(goals)); render();
 };
+
+// ---- tabs (Tasks / Timer / Report)
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.id === "tab-" + name));
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  try { localStorage.setItem("focus-desk-tab", name); } catch {}
+}
+document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => { showTab(b.dataset.tab); window.scrollTo(0, 0); }));
+showTab(localStorage.getItem("focus-desk-tab") || "timer");
+const origFocus = $("#tasklist").onclick;
+$("#tasklist").addEventListener("click", (e) => { if (e.target.closest('[data-act="focus"]')) showTab("timer"); });
