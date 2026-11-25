@@ -1,12 +1,12 @@
 // Pure logic for the study planner: sessions, totals, timer formatting.
 export const SUBJECTS = ["Math", "Physics", "Chemistry", "Biology", "English", "Arabic", "History"];
 
-export function addSession(list, { subject, minutes, date }) {
+export function addSession(list, { subject, minutes, date, taskId = null }) {
   const m = Math.round(Number(minutes));
   if (!SUBJECTS.includes(subject)) throw new Error("Unknown subject");
   if (!Number.isFinite(m) || m <= 0 || m > 600) throw new Error("Minutes must be 1-600");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Bad date");
-  return [...list, { id: `${date}-${list.length}-${m}`, subject, minutes: m, date }];
+  return [...list, { id: `${date}-${list.length}-${m}`, subject, minutes: m, date, ...(taskId ? { taskId } : {}) }];
 }
 
 export function totalsBySubject(list) {
@@ -57,4 +57,32 @@ export function weekProgress(list, dates, goals) {
     const goal = Math.max(0, Math.round(Number(goals[subject]) || 0));
     return { subject, done: done[subject], goal, pct: goal ? Math.min(1, done[subject] / goal) : 0, met: goal > 0 && done[subject] >= goal };
   });
+}
+
+// ---- tasks (each task can be focused on; sessions link back by taskId)
+export function addTask(tasks, { title, subject, estimate, due }) {
+  const t = String(title || "").trim();
+  if (!t) throw new Error("Task needs a title");
+  if (t.length > 120) throw new Error("Title is too long");
+  if (!SUBJECTS.includes(subject)) throw new Error("Unknown subject");
+  const est = Math.round(Number(estimate) || 0);
+  if (est < 0 || est > 50) throw new Error("Estimate must be 0-50 sessions");
+  if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("Bad date");
+  const n = tasks.reduce((m, x) => Math.max(m, Number(x.id.slice(1)) || 0), 0) + 1;
+  return [...tasks, { id: "t" + n, title: t, subject, estimate: est, due: due || "", done: false }];
+}
+export const toggleTask = (tasks, id) => tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+export const removeTask = (tasks, id) => tasks.filter((t) => t.id !== id);
+export function taskStats(sessions, id) {
+  const own = sessions.filter((s) => s.taskId === id);
+  return { sessions: own.length, minutes: own.reduce((a, s) => a + s.minutes, 0) };
+}
+export function sortTasks(tasks, today) {
+  const rank = (t) => (t.done ? 3 : !t.due ? 2 : t.due < today ? 0 : 1);
+  return [...tasks].sort((a, b) => rank(a) - rank(b) || (a.due || "9").localeCompare(b.due || "9") || a.id.localeCompare(b.id, undefined, { numeric: true }));
+}
+// After a focus block: long break every `every` completed focus blocks, otherwise short.
+export function nextPhase(phase, completedFocus, every = 4) {
+  if (phase !== "focus") return "focus";
+  return completedFocus % every === 0 ? "long" : "short";
 }
