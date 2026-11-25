@@ -1,7 +1,9 @@
-// Google sign-in + per-account sync for a small app that stores state in localStorage.
-// Data path: users/{uid}/apps/{app}  (one document per app, so apps cannot overwrite each other).
-// Security is enforced by Firestore rules (owner only). Only the listed keys sync.
+// Google sign-in + per-account sync for a small app that keeps its state in localStorage.
+// Data path: users/{uid}/apps/{app}. One document per app, so apps cannot overwrite each other.
+// Devices never overwrite each other: every write is a transaction that three-way merges with the account copy (merge.js).
+// Access is enforced by Firestore rules (owner only). Only the listed keys sync.
 import { firebaseConfig } from "./firebase-config.js";
+import { mergeAll } from "./merge.js";
 const B = "https://www.gstatic.com/firebasejs/11.0.2/";
 let M;
 async function load() {
@@ -11,31 +13,46 @@ async function load() {
   return (M = { auth, fs, au: auth.getAuth(a), db: fs.getFirestore(a) });
 }
 export function initSync({ app, keys, authEl, statusEl }) {
-  const FLAG = `sync:${app}:on`, BUCKET = (id) => `sync:${app}:bucket:${id}`, ACTIVE = `sync:${app}:active`;
+  const FLAG = `sync:${app}:on`, BUCKET = (id) => `sync:${app}:bucket:${id}`, ACTIVE = `sync:${app}:active`, BASE = (u) => `sync:${app}:base:${u}`, IMPORTED = (u) => `sync:${app}:imported:${u}`;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const status = (t) => { if (statusEl) statusEl.textContent = t; };
-  const snap = () => Object.fromEntries(keys.map((k) => [k, localStorage.getItem(k)]).filter(([, v]) => v !== null));
-  const apply = (o) => { keys.forEach((k) => (k in o ? localStorage.setItem(k, o[k]) : localStorage.removeItem(k))); };
-  let uid = null, timer = null, applying = false, stop = null;
   const nativeSet = Storage.prototype.setItem, nativeRemove = Storage.prototype.removeItem;
+  const snap = () => Object.fromEntries(keys.map((k) => [k, localStorage.getItem(k)]).filter(([, v]) => v !== null));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const readJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
+  let uid = null, timer = null, applying = false, stop = null;
+  const apply = (o) => { applying = true; keys.forEach((k) => (k in o ? nativeSet.call(localStorage, k, o[k]) : nativeRemove.call(localStorage, k))); applying = false; };
+  const typing = () => /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
+  const refresh = () => { if (!typing()) location.reload(); else status("Updated from another device. Reload to see it."); };
   const touched = (k) => { if (!applying && uid && keys.includes(k)) { clearTimeout(timer); status("Saving…"); timer = setTimeout(push, 700); } };
   Storage.prototype.setItem = function (k, v) { nativeSet.call(this, k, v); if (this === localStorage) touched(k); };
   Storage.prototype.removeItem = function (k) { nativeRemove.call(this, k); if (this === localStorage) touched(k); };
+
   async function push() {
     const { fs, db } = await load(), u = uid; if (!u) return;
-    try { await fs.setDoc(fs.doc(db, "users", u, "apps", app), { json: JSON.stringify(snap()), updatedAt: Date.now() }); status("Synced to your account."); }
-    catch (e) { status("Not synced: " + (e.code || e.message)); }
+    const ref = fs.doc(db, "users", u, "apps", app);
+    try {
+      const merged = await fs.runTransaction(db, async (t) => {
+        const s = await t.get(ref); let remote = {}; if (s.exists()) { try { remote = JSON.parse(s.data().json); } catch {} }
+        const m = mergeAll(readJSON(BASE(u)), snap(), remote, keys);
+        if (!same(m, remote)) t.set(ref, { json: JSON.stringify(m), updatedAt: Date.now() });
+        return m;
+      });
+      nativeSet.call(localStorage, BASE(u), JSON.stringify(merged));
+      if (u !== uid) return;
+      if (!same(merged, snap())) { apply(merged); refresh(); } // another device's records were merged in
+      status("Synced to your account.");
+    } catch (e) { status("Not synced: " + (e.code || e.message)); }
   }
   function paint(user) {
     authEl.innerHTML = user ? `<span class="who">${esc(user.displayName || user.email || "Signed in")}</span> <button type="button" data-a="out">Sign out</button>` : `<button type="button" data-a="in">Sign in with Google</button>`;
   }
-  function swapTo(id) { // park the live keys in the bucket of whoever owned them, then load the new owner's bucket
+  function swapTo(id) { // park the live keys with whoever owned them, then load the new owner's keys
     const from = localStorage.getItem(ACTIVE) || "device";
     if (from === id) return false;
     nativeSet.call(localStorage, BUCKET(from), JSON.stringify(snap()));
     let next = {}; try { next = JSON.parse(localStorage.getItem(BUCKET(id))) || {}; } catch {}
-    applying = true; apply(next); applying = false;
-    nativeSet.call(localStorage, ACTIVE, id); return true;
+    apply(next); nativeSet.call(localStorage, ACTIVE, id); return true;
   }
   async function start() {
     let m; try { m = await load(); } catch { status("Sync unavailable (offline?). Saved on this device only."); return; }
@@ -48,22 +65,25 @@ export function initSync({ app, keys, authEl, statusEl }) {
       const ref = m.fs.doc(m.db, "users", user.uid, "apps", app); let first = true;
       stop = m.fs.onSnapshot(ref, async (s) => {
         if (s.metadata.hasPendingWrites) return;
-        let remote = null; if (s.exists()) { try { remote = JSON.parse(s.data().json); } catch {} }
+        let remote = {}; if (s.exists()) { try { remote = JSON.parse(s.data().json); } catch {} }
         if (first) {
           first = false;
-          if (!remote) { // nothing in the account yet: offer to copy this device's saved data in, never silently
-            let dev = {}; try { dev = JSON.parse(localStorage.getItem(BUCKET("device"))) || {}; } catch {}
-            if (Object.keys(snap()).length === 0 && Object.keys(dev).length && confirm("Copy this device's saved data into your account?")) { applying = true; apply(dev); applying = false; }
-            if (Object.keys(snap()).length) await push(); else status("Synced to your account.");
-            if (Object.keys(snap()).length && changed) location.reload();
-            return;
+          // Offer to merge this device's saved data into the account once per account. Nothing in the account is overwritten.
+          let dev = {}; try { dev = JSON.parse(localStorage.getItem(BUCKET("device"))) || {}; } catch {}
+          const n = Object.keys(dev).length;
+          if (n && !localStorage.getItem(IMPORTED(uid))) {
+            nativeSet.call(localStorage, IMPORTED(uid), "1");
+            if (confirm(`Merge the saved data on this device into your account?\nYour account${s.exists() ? " already has data and keeps it" : " is empty"}; this device's items are added, nothing is overwritten. This device's copy stays as it is.`)) {
+              const merged = mergeAll({}, { ...dev, ...snap() }, remote, keys); apply(merged);
+              await push(); if (changed || !same(merged, remote)) refresh(); return;
+            }
           }
         }
-        if (remote && JSON.stringify(remote) !== JSON.stringify(snap())) {
-          applying = true; apply(remote); applying = false;
-          const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
-          if (first || !typing) location.reload(); else status("Updated from another device. Reload to see it.");
-        } else status(s.metadata.fromCache ? "Offline, showing saved copy." : "Synced to your account.");
+        const merged = mergeAll(readJSON(BASE(uid)), snap(), remote, keys);
+        nativeSet.call(localStorage, BASE(uid), JSON.stringify(remote));
+        if (!same(merged, snap())) { apply(merged); if (!same(merged, remote)) await push(); refresh(); return; }
+        if (!same(merged, remote)) { await push(); return; }
+        status(s.metadata.fromCache ? "Offline, showing saved copy." : "Synced to your account.");
       }, (e) => status("Not synced: " + (e.code || e.message)));
     });
   }
