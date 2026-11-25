@@ -18,12 +18,18 @@ export function initSync({ app, keys, authEl, statusEl }) {
   const status = (t) => { if (statusEl) statusEl.textContent = t; };
   const nativeSet = Storage.prototype.setItem, nativeRemove = Storage.prototype.removeItem;
   const snap = () => Object.fromEntries(keys.map((k) => [k, localStorage.getItem(k)]).filter(([, v]) => v !== null));
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const pj = (v) => { try { return JSON.parse(v); } catch { return v; } };
+  const norm = (o) => JSON.stringify(Object.fromEntries(Object.keys(o).sort().map((k) => [k, pj(o[k])])));
+  const same = (a, b) => norm(a) === norm(b); // compare meaning, not formatting
   const readJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
   let uid = null, timer = null, applying = false, stop = null;
   const apply = (o) => { applying = true; keys.forEach((k) => (k in o ? nativeSet.call(localStorage, k, o[k]) : nativeRemove.call(localStorage, k))); applying = false; };
   const typing = () => /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
-  const refresh = () => { if (!typing()) location.reload(); else status("Updated from another device. Reload to see it."); };
+  const refresh = () => { // at most one automatic reload per 20s, so a page that rewrites its own data can never loop
+    const last = Number(sessionStorage.getItem(`sync:${app}:reloaded`) || 0);
+    if (typing() || Date.now() - last < 20000) { status("Updated from another device. Reload to see it."); return; }
+    sessionStorage.setItem(`sync:${app}:reloaded`, String(Date.now())); location.reload();
+  };
   const touched = (k) => { if (!applying && uid && keys.includes(k)) { clearTimeout(timer); status("Saving…"); timer = setTimeout(push, 700); } };
   Storage.prototype.setItem = function (k, v) { nativeSet.call(this, k, v); if (this === localStorage) touched(k); };
   Storage.prototype.removeItem = function (k) { nativeRemove.call(this, k); if (this === localStorage) touched(k); };
