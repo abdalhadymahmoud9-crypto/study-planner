@@ -51,7 +51,26 @@ export function initSync({ app, keys, authEl, statusEl }) {
     } catch (e) { status("Not synced: " + (e.code || e.message)); }
   }
   function paint(user) {
-    authEl.innerHTML = user ? `<span class="who">${esc(user.displayName || user.email || "Signed in")}</span> <button type="button" data-a="out">Sign out</button>` : `<button type="button" data-a="in">Sign in with Google</button>`;
+    const copies = storedUids().length;
+    authEl.innerHTML = user ? `<span class="who">${esc(user.displayName || user.email || "Signed in")}</span> <button type="button" data-a="out">Sign out</button>` : `<button type="button" data-a="in">Sign in with Google</button>` + (copies ? ` <button type="button" data-a="rm" class="ghost">Remove offline copies (${copies})</button><small class="offnote">This device keeps a copy of account data for offline use until you remove it. It is not encrypted.</small>` : "");
+  }
+  // Accounts that have a parked copy on this device (not the device-only bucket).
+  function storedUids() {
+    const pre = `sync:${app}:bucket:`, out = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pre) && k !== pre + "device") out.push(k.slice(pre.length)); }
+    return out;
+  }
+  // Removes parked copies that are fully synced. A copy with changes the account has not received is kept, never silently deleted.
+  function removeCopies() {
+    let removed = 0, kept = 0;
+    for (const u of storedUids()) {
+      if (u === uid) { kept++; continue; } // signed in as this account right now
+      let b = {}, base = {}; try { b = JSON.parse(localStorage.getItem(BUCKET(u))) || {}; } catch {} base = readJSON(BASE(u));
+      if (Object.keys(b).length && !same(b, base)) { kept++; continue; }
+      [BUCKET(u), BASE(u), IMPORTED(u)].forEach((k) => nativeRemove.call(localStorage, k)); removed++;
+    }
+    status(`Removed ${removed} offline cop${removed === 1 ? "y" : "ies"}.` + (kept ? ` Kept ${kept} with changes not yet synced: sign in to that account to sync them first.` : ""));
+    paint(null);
   }
   function swapTo(id) { // park the live keys with whoever owned them, then load the new owner's keys
     const from = localStorage.getItem(ACTIVE) || "device";
@@ -95,6 +114,7 @@ export function initSync({ app, keys, authEl, statusEl }) {
   }
   authEl.addEventListener("click", async (e) => {
     const a = e.target.dataset && e.target.dataset.a; if (!a) return;
+    if (a === "rm") { removeCopies(); return; }
     await start(); const m = await load();
     if (a === "in") { try { await m.auth.signInWithPopup(m.au, new m.auth.GoogleAuthProvider()); } catch (err) { status("Sign-in failed: " + (err.code || err.message)); } }
     else await m.auth.signOut(m.au);
