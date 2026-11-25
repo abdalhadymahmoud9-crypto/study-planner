@@ -93,3 +93,4 @@ select option{background:#1c2447;color:#fff}
 
 .syncbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:10px 0 0;font-size:.82rem;color:#9aa3b8}.syncbar p{margin:0}.auth{display:flex;align-items:center;gap:8px}.auth button{font:inherit;font-size:.85rem;padding:0 14px;min-height:40px;border-radius:999px;border:1px solid #3a4560;background:#1a2036;color:#f4f1ea;cursor:pointer}.auth button:hover{border-color:#ff7a59}.auth .who{color:#f4f1ea}
 .offnote{flex-basis:100%;font-size:.78rem;color:var(--mute,#6b7280);line-height:1.4}
+[data-a]{white-space:nowrap;flex:none}
