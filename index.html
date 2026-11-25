@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Focus Desk</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>Focus Desk</h1><p>Study timer, weekly plan and log</p></header>
+<main>
+  <section class="card timer">
+    <h2>Focus session</h2>
+    <div id="ring"><div id="clock">25:00</div></div>
+    <label>Subject <select id="subject"></select></label>
+    <div class="lens">
+      <button data-min="15">15</button><button data-min="25" class="on">25</button><button data-min="45">45</button><button data-min="60">60</button>
+    </div>
+    <div class="row"><button id="start" class="primary">Start</button><button id="reset" class="ghost">Reset</button></div>
+  </section>
+  <section class="card">
+    <h2>This week <span class="pill" id="total">0m</span></h2>
+    <div id="week"></div>
+    <p class="meta">Current streak: <b id="streak">0 days</b></p>
+  </section>
+  <section class="card">
+    <h2>Weekly plan <span class="pill">goal in minutes</span></h2>
+    <ul id="subjects" class="subs"></ul>
+  </section>
+  <section class="card">
+    <h2>Log a session</h2>
+    <form id="log">
+      <select id="lsubject"></select>
+      <input id="lminutes" type="number" min="1" max="600" placeholder="Minutes" required>
+      <input id="ldate" type="date" required>
+      <button class="primary">Add</button>
+    </form>
+    <p id="err" class="err"></p>
+    <ul id="recent" class="recent"></ul>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body></html>
