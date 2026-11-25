@@ -67,7 +67,7 @@ main{display:block;margin-top:16px}
 h2,.pill{color:var(--mute)}
 .pill{color:var(--ink)}
 #ring{width:260px;height:260px;margin:8px auto 28px;background:conic-gradient(var(--accent) var(--p),rgba(255,255,255,.14) 0)}
-#clock{width:250px;height:250px;background:transparent;color:var(--ink);font-size:3.6rem;font-weight:200}
+#clock{width:250px;height:250px;width:calc(100% - 12px);height:calc(100% - 12px);background:#131a33;color:var(--ink);font-size:3.6rem;font-weight:200}
 select,input{background:rgba(255,255,255,.07);border-color:var(--line);color:var(--ink);color-scheme:dark}
 select option{background:#1c2447;color:#fff}
 ::placeholder{color:#7f89ab}
