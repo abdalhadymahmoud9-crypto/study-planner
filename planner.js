@@ -1,17 +1,28 @@
 // Pure logic for the study planner: sessions, totals, timer formatting.
-export const SUBJECTS = ["Math", "Physics", "Chemistry", "Biology", "English", "Arabic", "History"];
+export const SUBJECTS = ["Math", "Physics", "Chemistry", "Biology", "English", "Arabic", "History", "Programming", "Artificial Intelligence", "Other"];
+export function cleanSubject(s) {
+  const v = String(s ?? "").trim().replace(/\s+/g, " ");
+  if (!v) throw new Error("Pick a subject");
+  if (v.length > 30) throw new Error("Subject name is too long (30 max)");
+  return v;
+}
+export function mergeSubjects(custom = []) {
+  const out = [...SUBJECTS];
+  for (const c of custom) { const v = String(c).trim(); if (v && !out.some((x) => x.toLowerCase() === v.toLowerCase())) out.push(v); }
+  return out;
+}
 
 export function addSession(list, { subject, minutes, date, taskId = null }) {
   const m = Math.round(Number(minutes));
-  if (!SUBJECTS.includes(subject)) throw new Error("Unknown subject");
+  subject = cleanSubject(subject);
   if (!Number.isFinite(m) || m <= 0 || m > 600) throw new Error("Minutes must be 1-600");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Bad date");
   return [...list, { id: `${date}-${list.length}-${m}`, subject, minutes: m, date, ...(taskId ? { taskId } : {}) }];
 }
 
-export function totalsBySubject(list) {
-  const out = Object.fromEntries(SUBJECTS.map((s) => [s, 0]));
-  for (const s of list) out[s.subject] += s.minutes;
+export function totalsBySubject(list, subjects = SUBJECTS) {
+  const out = Object.fromEntries(subjects.map((s) => [s, 0]));
+  for (const s of list) out[s.subject] = (out[s.subject] || 0) + s.minutes;
   return out;
 }
 
@@ -50,10 +61,11 @@ export function formatHours(minutes) {
 }
 
 // Weekly plan: target minutes per subject vs what was actually logged in the given week.
-export function weekProgress(list, dates, goals) {
+export function weekProgress(list, dates, goals, subjects = SUBJECTS) {
   const inWeek = list.filter((s) => dates.includes(s.date));
-  const done = totalsBySubject(inWeek);
-  return SUBJECTS.map((subject) => {
+  const all = [...subjects, ...inWeek.map((s) => s.subject).filter((s) => !subjects.includes(s))];
+  const done = totalsBySubject(inWeek, all);
+  return [...new Set(all)].map((subject) => {
     const goal = Math.max(0, Math.round(Number(goals[subject]) || 0));
     return { subject, done: done[subject], goal, pct: goal ? Math.min(1, done[subject] / goal) : 0, met: goal > 0 && done[subject] >= goal };
   });
@@ -64,7 +76,7 @@ export function addTask(tasks, { title, subject, estimate, due }) {
   const t = String(title || "").trim();
   if (!t) throw new Error("Task needs a title");
   if (t.length > 120) throw new Error("Title is too long");
-  if (!SUBJECTS.includes(subject)) throw new Error("Unknown subject");
+  subject = cleanSubject(subject);
   const est = Math.round(Number(estimate) || 0);
   if (est < 0 || est > 50) throw new Error("Estimate must be 0-50 sessions");
   if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("Bad date");
