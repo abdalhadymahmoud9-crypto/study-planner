@@ -5,11 +5,24 @@
 <title>Focus Desk</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>Focus Desk</h1><p>Study timer, weekly plan and log</p></header>
+<header><h1>Focus Desk</h1><p>Tasks, focus timer, weekly plan and log</p></header>
 <main>
+  <section class="card tasks">
+    <h2>Tasks <span class="pill" id="open">0 open</span></h2>
+    <form id="addtask">
+      <input id="ttitle" placeholder="New task" maxlength="120" aria-label="Task title" required>
+      <select id="tsubject" aria-label="Subject"></select>
+      <input id="test" type="number" min="0" max="50" placeholder="Sessions" aria-label="Estimated focus sessions">
+      <input id="tdue" type="date" aria-label="Due date">
+      <button class="primary">Add task</button>
+    </form>
+    <p id="terr" class="err"></p>
+    <ul id="tasklist" class="tasklist"></ul>
+  </section>
   <section class="card timer">
-    <h2>Focus session</h2>
+    <h2>Focus session <span class="pill" id="phase">Focus</span></h2>
     <div id="ring"><div id="clock">25:00</div></div>
+    <label>Task <select id="task"><option value="">No task</option></select></label>
     <label>Subject <select id="subject"></select></label>
     <div class="lens">
       <button data-min="15">15</button><button data-min="25" class="on">25</button><button data-min="45">45</button><button data-min="60">60</button>
